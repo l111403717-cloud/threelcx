@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中曼格宾石笼网 3D 重构与三维爆炸拆解系统</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0d1117;
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #webgl-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* 顶部工程规格面板 */
+    .header-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(18, 22, 31, 0.88);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 18px 24px;
+      max-width: 440px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+      pointer-events: auto;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      background: #f26222;
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #f0f6fc;
+      letter-spacing: 0.5px;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: #8b949e;
+      margin-bottom: 12px;
+      font-family: monospace;
+    }
+    .spec-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+      font-size: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 10px;
+    }
+    .spec-item span:first-child { color: #8b949e; }
+    .spec-item span:last-child { color: #58a6ff; font-weight: 600; margin-left: 6px; }
+
+    /* 右侧控制栏 */
+    .controls-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+      background: rgba(18, 22, 31, 0.88);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 250px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+      pointer-events: auto;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: -4px;
+    }
+    .slider-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #c9d1d9;
+    }
+    .slider-header span.val {
+      color: #f26222;
+      font-weight: 700;
+      font-family: monospace;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #30363d;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #f26222;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(242, 98, 34, 0.6);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .btn {
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #30363d;
+      color: #fff;
+      border-color: #8b949e;
+    }
+    .btn.active {
+      background: #f26222;
+      color: #fff;
+      border-color: #ff854d;
+    }
+    .view-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .view-grid .btn {
+      padding: 7px 6px;
+      font-size: 11px;
+    }
+
+    /* 左下角参考蓝图浮窗 */
+    .blueprint-panel {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      z-index: 10;
+      background: rgba(18, 22, 31, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      width: 260px;
+      transition: width 0.3s ease;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .blueprint-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #8b949e;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .blueprint-panel img {
+      width: 100%;
+      height: 145px;
+      object-fit: cover;
+      border-radius: 6px;
+      display: block;
+      transition: transform 0.2s;
+    }
+    .blueprint-panel:hover img {
+      opacity: 0.95;
+    }
+
+    /* 底部手势提示 */
+    .hint-bar {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      background: rgba(18, 22, 31, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 8px 20px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: #8b949e;
+      pointer-events: none;
+    }
+    .hint-bar span { color: #58a6ff; font-weight: 600; }
+  </style>
+
+  <!-- 优先引入本地 Three.js 与 OrbitControls -->
+  <script src="assets/three.min.js"></script>
+  <script src="assets/OrbitControls.js"></script>
+  <!-- CDN 备份（若本地缺失） -->
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+  <div id="webgl-container"></div>
+
+  <!-- 规格信息面板 -->
+  <div class="header-panel">
+    <div class="badge">ZHONGMAN GABION 3D</div>
+    <h1>中曼生态格宾石笼网箱 3D 重构</h1>
+    <div class="subtitle">HEXAGONAL DOUBLE-TWISTED WIRE MESH</div>
+    <div class="spec-grid">
+      <div class="spec-item"><span>标准规格:</span> <span>2.0 × 1.0 × 1.0 m</span></div>
+      <div class="spec-item"><span>网孔尺寸:</span> <span>80 × 100 mm</span></div>
+      <div class="spec-item"><span>绞合工艺:</span> <span>双绞三拧（ASTM A975）</span></div>
+      <div class="spec-item"><span>网丝线径:</span> <span>φ 2.7 mm</span></div>
+      <div class="spec-item"><span>边丝粗径:</span> <span>φ 3.4 mm</span></div>
+      <div class="spec-item"><span>表面防腐:</span> <span>镀高尔凡 (Zn-5%Al)</span></div>
+      <div class="spec-item"><span>内部填充:</span> <span>自然花岗岩块石 (10-25cm)</span></div>
+      <div class="spec-item"><span>抗冲刷流速:</span> <span>≥ 8.0 m/s</span></div>
+    </div>
+  </div>
+
+  <!-- 控制面板 -->
+  <div class="controls-panel">
+    <div class="section-title">三维爆炸拆解控制</div>
+    <div class="slider-box">
+      <div class="slider-header">
+        <span>爆炸展开幅度</span>
+        <span class="val" id="explode-val">0%</span>
+      </div>
+      <input type="range" id="explode-slider" min="0" max="100" value="0">
+    </div>
+
+    <button class="btn" id="btn-auto-anim">
+      <span>▶ 自动播放拆解与装配</span>
+    </button>
+
+    <div class="section-title">视点预设</div>
+    <div class="view-grid">
+      <button class="btn active" id="btn-view-iso">等轴测全景</button>
+      <button class="btn" id="btn-view-close">双绞微观</button>
+      <button class="btn" id="btn-view-top">顶面俯视</button>
+      <button class="btn" id="btn-view-explode">展开剖面</button>
+    </div>
+
+    <div class="section-title">构件显示</div>
+    <button class="btn active" id="btn-toggle-rocks">🪨 隐藏/显示内部块石</button>
+    <button class="btn active" id="btn-toggle-spin">🔄 自动旋转展示</button>
+  </div>
+
+  <!-- 参考蓝图悬浮窗口 -->
+  <div class="blueprint-panel" title="点击放大/缩回参考三视图">
+    <div class="blueprint-header">
+      <span>工程三视图参考 (CAD Blueprint)</span>
+      <span style="color:#58a6ff;">🔍 原图</span>
+    </div>
+    <img src="blueprint.jpg" alt="石笼网三视图">
+  </div>
+
+  <!-- 底部手势操作提示 -->
+  <div class="hint-bar">
+    🖱️ <span>左键拖拽</span> 360°旋转 | <span>右键拖拽</span> 平移 | <span>滚轮</span> 无级缩放
+  </div>
+
+  <script>
+    // -------------------------------------------------------------------------
+    // 1. 初始化 Three.js 场景、相机与渲染器
+    // -------------------------------------------------------------------------
+    const container = document.getElementById('webgl-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0e1218);
+    scene.fog = new THREE.FogExp2(0x0e1218, 0.0018);
+
+    const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 1, 3000);
+    camera.position.set(380, 260, 420);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI / 2 + 0.08;
+    controls.minDistance = 60;
+    controls.maxDistance = 1500;
+    controls.target.set(0, 0, 0);
+
+    // -------------------------------------------------------------------------
+    // 2. 真实工业光照系统
+    // -------------------------------------------------------------------------
+    const ambientLight = new THREE.AmbientLight(0xd8e4f0, 0.7);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    sunLight.position.set(240, 480, 280);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 1200;
+    const d = 260;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    sunLight.shadow.bias = -0.0004;
+    scene.add(sunLight);
+
+    // 工业冷蓝反光补光
+    const rimLight = new THREE.DirectionalLight(0x4090ff, 0.85);
+    rimLight.position.set(-300, 150, -320);
+    scene.add(rimLight);
+
+    // 安全橙底座强调光
+    const orangePoint = new THREE.PointLight(0xf26222, 1.8, 600);
+    orangePoint.position.set(0, -60, 0);
+    scene.add(orangePoint);
+
+    // 地面反光网格平台
+    const gridHelper = new THREE.GridHelper(900, 36, 0x303c4e, 0x18202c);
+    gridHelper.position.y = -65;
+    scene.add(gridHelper);
+
+    const groundGeo = new THREE.PlaneGeometry(1600, 1600);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x090c10,
+      roughness: 0.85,
+      metalness: 0.2
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -65.2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // -------------------------------------------------------------------------
+    // 3. 纯代码生成六角双绞金属丝网材质贴图 (Hexagonal Double-Twist Texture)
+    // -------------------------------------------------------------------------
+    function generateHexMeshTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 512, 512);
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      const r = 44;
+      const dx = r * 1.5;
+      const dy = r * Math.sqrt(3);
+
+      for (let x = -dx; x < 512 + dx * 2; x += dx) {
+        for (let y = -dy; y < 512 + dy * 2; y += dy) {
+          const col = Math.round(x / dx);
+          const yOff = (col % 2 !== 0) ? dy / 2 : 0;
+          const cy = y + yOff;
+
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const a = i * Math.PI / 3;
+            const px = x + r * 0.92 * Math.cos(a);
+            const py = cy + r * 0.92 * Math.sin(a);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+
+          // 绘制上下两端的双绞合加粗特征 (Double Twist Joint)
+          ctx.lineWidth = 22;
+          ctx.beginPath();
+          ctx.moveTo(x - 6, cy + r * 0.92);
+          ctx.lineTo(x + 6, cy + r * 0.92 + 18);
+          ctx.stroke();
+          ctx.lineWidth = 14;
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    const hexAlphaMap = generateHexMeshTexture();
+
+    // 镀高尔凡锌铝合金金属材质
+    const galfanMat = new THREE.MeshStandardMaterial({
+      color: 0xdde6f2,
+      metalness: 0.92,
+      roughness: 0.28,
+      alphaMap: hexAlphaMap,
+      transparent: true,
+      side: THREE.DoubleSide,
+      shadowSide: THREE.DoubleSide
+    });
+
+    // 粗边框钢丝材质 (φ3.4mm)
+    const selvedgeWireMat = new THREE.MeshStandardMaterial({
+      color: 0xeaf0f8,
+      metalness: 0.95,
+      roughness: 0.22
+    });
+
+    // 螺旋绞边扎丝材质 (橙色高亮，突出工业固定细节)
+    const lacingWireMat = new THREE.MeshStandardMaterial({
+      color: 0xf26222,
+      metalness: 0.88,
+      roughness: 0.32
+    });
+
+    // -------------------------------------------------------------------------
+    // 4. 构建三维格宾网箱装配体 (Gabion Box Hierarchy)
+    // -------------------------------------------------------------------------
+    const gabionRoot = new THREE.Group();
+    scene.add(gabionRoot);
+
+    // 标准网箱尺寸: 长200 x 宽100 x 高100 (等比缩放)
+    const L = 200, W_box = 100, H_box = 100;
+    const halfL = L / 2, halfW = W_box / 2, halfH = H_box / 2;
+
+    // 创建带加粗边框的单张网片函数
+    function createPanel(w, h, repX, repY) {
+      const g = new THREE.Group();
+
+      const mat = galfanMat.clone();
+      mat.alphaMap = hexAlphaMap.clone();
+      mat.alphaMap.repeat.set(repX, repY);
+      mat.alphaMap.needsUpdate = true;
+
+      const meshGeo = new THREE.PlaneGeometry(w, h);
+      const mesh = new THREE.Mesh(meshGeo, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      g.add(mesh);
+
+      // 加粗边框 (四边粗圆管)
+      const edgeR = 1.4;
+      const hw = w / 2, hh = h / 2;
+      const tbGeo = new THREE.CylinderGeometry(edgeR, edgeR, w, 16);
+      const lrGeo = new THREE.CylinderGeometry(edgeR, edgeR, h, 16);
+
+      const topEdge = new THREE.Mesh(tbGeo, selvedgeWireMat);
+      topEdge.rotation.z = Math.PI / 2;
+      topEdge.position.y = hh;
+      g.add(topEdge);
+
+      const botEdge = new THREE.Mesh(tbGeo, selvedgeWireMat);
+      botEdge.rotation.z = Math.PI / 2;
+      botEdge.position.y = -hh;
+      g.add(botEdge);
+
+      const leftEdge = new THREE.Mesh(lrGeo, selvedgeWireMat);
+      leftEdge.position.x = -hw;
+      g.add(leftEdge);
+
+      const rightEdge = new THREE.Mesh(lrGeo, selvedgeWireMat);
+      rightEdge.position.x = hw;
+      g.add(rightEdge);
+
+      return g;
+    }
+
+    // 1. 底板 (Base)
+    const baseGroup = createPanel(L, W_box, 6, 3);
+    baseGroup.rotation.x = -Math.PI / 2;
+    baseGroup.position.y = -halfH;
+    gabionRoot.add(baseGroup);
+
+    // 2. 前侧板 (Front) - 旋转轴位于底部
+    const frontPivot = new THREE.Group();
+    frontPivot.position.set(0, -halfH, halfW);
+    const frontPanel = createPanel(L, H_box, 6, 3);
+    frontPanel.position.set(0, halfH, 0);
+    frontPivot.add(frontPanel);
+    gabionRoot.add(frontPivot);
+
+    // 3. 后侧板 (Back)
+    const backPivot = new THREE.Group();
+    backPivot.position.set(0, -halfH, -halfW);
+    const backPanel = createPanel(L, H_box, 6, 3);
+    backPanel.position.set(0, halfH, 0);
+    backPivot.add(backPanel);
+    gabionRoot.add(backPivot);
+
+    // 4. 左端板 (Left)
+    const leftPivot = new THREE.Group();
+    leftPivot.position.set(-halfL, -halfH, 0);
+    const leftPanel = createPanel(W_box, H_box, 3, 3);
+    leftPanel.rotation.y = Math.PI / 2;
+    leftPanel.position.set(0, halfH, 0);
+    leftPivot.add(leftPanel);
+    gabionRoot.add(leftPivot);
+
+    // 5. 右端板 (Right)
+    const rightPivot = new THREE.Group();
+    rightPivot.position.set(halfL, -halfH, 0);
+    const rightPanel = createPanel(W_box, H_box, 3, 3);
+    rightPanel.rotation.y = -Math.PI / 2;
+    rightPanel.position.set(0, halfH, 0);
+    rightPivot.add(rightPanel);
+    gabionRoot.add(rightPivot);
+
+    // 6. 中间加劲隔板 (Partition Diaphragm)
+    const midPanel = createPanel(W_box, H_box, 3, 3);
+    midPanel.rotation.y = Math.PI / 2;
+    midPanel.position.set(0, 0, 0);
+    gabionRoot.add(midPanel);
+
+    // 7. 顶盖板 (Top Lid)
+    const topLidGroup = createPanel(L, W_box, 6, 3);
+    topLidGroup.rotation.x = -Math.PI / 2;
+    topLidGroup.position.set(0, halfH, 0);
+    gabionRoot.add(topLidGroup);
+
+    // 8. 四角螺旋绑扎绞丝圈 (Spiral Lacing Wires)
+    const spiralGroup = new THREE.Group();
+    function createSpiral(height, r) {
+      const curvePts = [];
+      const turns = 18;
+      for (let i = 0; i <= 140; i++) {
+        const t = i / 140;
+        const ang = t * turns * Math.PI * 2;
+        curvePts.push(new THREE.Vector3(r * Math.cos(ang), t * height - height / 2, r * Math.sin(ang)));
+      }
+      const curve = new THREE.CatmullRomCurve3(curvePts);
+      const tubeGeo = new THREE.TubeGeometry(curve, 100, 1.1, 8, false);
+      return new THREE.Mesh(tubeGeo, lacingWireMat);
+    }
+
+    const s1 = createSpiral(H_box, 4.5); s1.position.set(-halfL, 0, -halfW); spiralGroup.add(s1);
+    const s2 = createSpiral(H_box, 4.5); s2.position.set(halfL, 0, -halfW); spiralGroup.add(s2);
+    const s3 = createSpiral(H_box, 4.5); s3.position.set(-halfL, 0, halfW); spiralGroup.add(s3);
+    const s4 = createSpiral(H_box, 4.5); s4.position.set(halfL, 0, halfW); spiralGroup.add(s4);
+    gabionRoot.add(spiralGroup);
+
+    // -------------------------------------------------------------------------
+    // 5. 内部填充真实花岗岩自然块石集群 (Granite Rocks)
+    // -------------------------------------------------------------------------
+    const rocksGroup = new THREE.Group();
+    gabionRoot.add(rocksGroup);
+
+    const rockColors = [0x505862, 0x6e7884, 0x828e9a, 0x48505a, 0x766c62, 0x5a6068];
+    const rockMaterials = rockColors.map(col => new THREE.MeshStandardMaterial({
+      color: col,
+      roughness: 0.88,
+      metalness: 0.12,
+      flatShading: true
+    }));
+
+    const rockCount = 68;
+    const rockItems = [];
+
+    for (let i = 0; i < rockCount; i++) {
+      // 随机分配在左右两个网格隔仓内部
+      const inLeftBay = Math.random() < 0.5;
+      const xRange = inLeftBay ? [-halfL + 16, -14] : [14, halfL - 16];
+      const rx = THREE.MathUtils.randFloat(xRange[0], xRange[1]);
+      const ry = THREE.MathUtils.randFloat(-halfH + 14, halfH - 14);
+      const rz = THREE.MathUtils.randFloat(-halfW + 14, halfW - 14);
+
+      // 块石大小与随机形状扰动
+      const baseR = THREE.MathUtils.randFloat(11, 19);
+      const rockGeo = new THREE.DodecahedronGeometry(baseR, 1);
+      const posAttr = rockGeo.attributes.position;
+      for (let v = 0; v < posAttr.count; v++) {
+        const vx = posAttr.getX(v);
+        const vy = posAttr.getY(v);
+        const vz = posAttr.getZ(v);
+        const noise = 1.0 + (Math.sin(vx * 0.4) + Math.cos(vy * 0.4) + Math.sin(vz * 0.4)) * 0.18;
+        posAttr.setXYZ(v, vx * noise, vy * noise, vz * noise);
+      }
+      rockGeo.computeVertexNormals();
+
+      const mat = rockMaterials[Math.floor(Math.random() * rockMaterials.length)];
+      const rockMesh = new THREE.Mesh(rockGeo, mat);
+      rockMesh.position.set(rx, ry, rz);
+      rockMesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      rockMesh.scale.set(THREE.MathUtils.randFloat(0.85, 1.25), THREE.MathUtils.randFloat(0.8, 1.2), THREE.MathUtils.randFloat(0.85, 1.25));
+      rockMesh.castShadow = true;
+      rockMesh.receiveShadow = true;
+
+      rocksGroup.add(rockMesh);
+      rockItems.push({
+        mesh: rockMesh,
+        origX: rx,
+        origY: ry,
+        origZ: rz,
+        disperseDir: new THREE.Vector3(rx / halfL, (ry + halfH) / H_box, rz / halfW).normalize()
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. 三维爆炸拆解动画控制逻辑 (Exploded View Engine)
+    // -------------------------------------------------------------------------
+    let currentExplode = 0.0;
+    let targetExplode = 0.0;
+    let autoPlayAnim = false;
+    let autoPlayTimer = 0;
+
+    function applyExplode(factor) {
+      // 0.0 (稳态完整网箱) ~ 1.0 (完全解剖爆炸态)
+      currentExplode = factor;
+      document.getElementById('explode-slider').value = Math.round(factor * 100);
+      document.getElementById('explode-val').innerText = `${Math.round(factor * 100)}%`;
+
+      // 1. 顶盖板向上升起并微倾斜
+      topLidGroup.position.y = halfH + factor * 90.0;
+      topLidGroup.rotation.z = factor * 0.12;
+
+      // 2. 四面板向外平滑折叠展开 (铰链翻转)
+      const foldAng = factor * (Math.PI / 2.3);
+      frontPivot.rotation.x = foldAng;
+      backPivot.rotation.x = -foldAng;
+      leftPivot.rotation.z = foldAng;
+      rightPivot.rotation.z = -foldAng;
+
+      // 3. 中间加劲隔板垂直升起
+      midPanel.position.y = factor * 45.0;
+
+      // 4. 螺旋绑扎钢丝向四角炸开
+      s1.position.set(-halfL - factor * 35, 0, -halfW - factor * 35);
+      s2.position.set(halfL + factor * 35, 0, -halfW - factor * 35);
+      s3.position.set(-halfL - factor * 35, 0, halfW + factor * 35);
+      s4.position.set(halfL + factor * 35, 0, halfW + factor * 35);
+
+      // 5. 内部块石向空间分散悬浮
+      rockItems.forEach(item => {
+        const offset = item.disperseDir.clone().multiplyScalar(factor * 38.0);
+        item.mesh.position.set(
+          item.origX + offset.x,
+          item.origY + offset.y + factor * 16.0,
+          item.origZ + offset.z
+        );
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. 交互事件绑定与控制
+    // -------------------------------------------------------------------------
+    const slider = document.getElementById('explode-slider');
+    slider.addEventListener('input', (e) => {
+      autoPlayAnim = false;
+      document.getElementById('btn-auto-anim').classList.remove('active');
+      targetExplode = parseFloat(e.target.value) / 100.0;
+      applyExplode(targetExplode);
+    });
+
+    const autoBtn = document.getElementById('btn-auto-anim');
+    autoBtn.addEventListener('click', () => {
+      autoPlayAnim = !autoPlayAnim;
+      autoBtn.classList.toggle('active', autoPlayAnim);
+      autoBtn.innerHTML = autoPlayAnim ? '<span>⏸ 暂停自动演示</span>' : '<span>▶ 自动播放拆解与装配</span>';
+    });
+
+    // 视角预设平滑过渡
+    function moveCamera(x, y, z, tx, ty, tz) {
+      const startPos = camera.position.clone();
+      const endPos = new THREE.Vector3(x, y, z);
+      const startTarget = controls.target.clone();
+      const endTarget = new THREE.Vector3(tx, ty, tz);
+
+      let t = 0;
+      function animCam() {
+        t += 0.04;
+        const e = 1.0 - Math.pow(1.0 - Math.min(1.0, t), 3);
+        camera.position.lerpVectors(startPos, endPos, e);
+        controls.target.lerpVectors(startTarget, endTarget, e);
+        if (t < 1.0) requestAnimationFrame(animCam);
+      }
+      animCam();
+    }
+
+    document.getElementById('btn-view-iso').addEventListener('click', (e) => {
+      setActiveViewBtn(e.target);
+      moveCamera(360, 240, 400, 0, 0, 0);
+    });
+
+    document.getElementById('btn-view-close').addEventListener('click', (e) => {
+      setActiveViewBtn(e.target);
+      moveCamera(65, 45, 95, 20, 10, 30);
+    });
+
+    document.getElementById('btn-view-top').addEventListener('click', (e) => {
+      setActiveViewBtn(e.target);
+      moveCamera(0, 480, 20, 0, 0, 0);
+    });
+
+    document.getElementById('btn-view-explode').addEventListener('click', (e) => {
+      setActiveViewBtn(e.target);
+      targetExplode = 0.85;
+      applyExplode(0.85);
+      moveCamera(280, 280, 340, 0, 20, 0);
+    });
+
+    function setActiveViewBtn(btn) {
+      document.querySelectorAll('.view-grid .btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    // 块石显示/隐藏切换
+    let rocksVisible = true;
+    document.getElementById('btn-toggle-rocks').addEventListener('click', (e) => {
+      rocksVisible = !rocksVisible;
+      rocksGroup.visible = rocksVisible;
+      e.target.classList.toggle('active', rocksVisible);
+    });
+
+    // 自动自转切换
+    let autoRotate = true;
+    document.getElementById('btn-toggle-spin').addEventListener('click', (e) => {
+      autoRotate = !autoRotate;
+      controls.autoRotate = autoRotate;
+      e.target.classList.toggle('active', autoRotate);
+    });
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1.2;
+
+    // 窗口尺寸自适应
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // -------------------------------------------------------------------------
+    // 8. 实时渲染循环 (Render Loop)
+    // -------------------------------------------------------------------------
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      // 自动播放循环往复的爆炸拆解动画
+      if (autoPlayAnim) {
+        autoPlayTimer += delta * 0.9;
+        // 使用正弦波平滑往返
+        const osc = 0.5 + 0.5 * Math.sin(autoPlayTimer - Math.PI / 2);
+        applyExplode(osc);
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
